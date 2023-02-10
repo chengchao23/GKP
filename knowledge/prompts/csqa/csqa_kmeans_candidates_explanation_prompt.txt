@@ -1,0 +1,33 @@
+Generate explanations for the answer to questions. Examples:
+
+Input: The christian Sunday school teacher gave out a punishment, this happened when the students did what to her orders?
+Candidates: stumble, rebel, disobey, go astray, commit sin
+Explanation: The teacher will give orders to the students in the school, but if the students do not obey, the teacher will punish the students.
+
+Input: Sam didn't like the people he met while traveling.  What might he do to get away from them?
+Candidates: come home, airplane, learn from each other, go out, make art
+Explanation: If you leave people you don't like during the trip, you can end the trip and go home directly, and you won't meet these people you don't like when you go home.
+
+Input: If you aren't in a jewelry store or looking in a jewelry box where might you find a choker?
+Candidates: boutique, kennel, jewelry box, pet store, jewelry store
+Explanation: We can usually find jewelry boxes in jewelry stores or boutiques, but if not in jewelry stores, then we will find them in boutiques.
+
+Input: where is the information superhighway?
+Candidates: heavily travelled area, cyberspace, industrialized country, on the internet, computer network
+Explanation: Cyberspace can be used for network information transfer, network information is transmitted on the information superhighway.
+
+Input: As the fox ran into the forest it disappeared into the what?
+Candidates: nantucket, barn, northern hemisphere, hen house, undergrowth
+Explanation: Forests can serve as habitat for foxes, who are usually found in undergrowth.
+
+Input: On what device can you watch a program without leaving your home?
+Candidates: television, microwave, concert, theater, opera
+Explanation: Television programs are available on television, and people can watch television without leaving their homes.
+
+Input: When the woman put her belonging in the drawstring bag, how did she want her things to stay?
+Candidates: safe, department store, military, tied up, airport
+Explanation: People use drawstring bags to store their belongings to keep things safe from damage.
+
+Input: {question}
+Candidates: {cands}
+Explanation:

@@ -1,0 +1,41 @@
+Generate explanations for the answer to questions. Examples:
+
+Input: The christian Sunday school teacher gave out a punishment, this happened when the students did what to her orders?
+Candidates: stumble, rebel, disobey, go astray, commit sin
+Answer: disobey
+Explanation: 
+
+Input: Sam didn't like the people he met while traveling.  What might he do to get away from them?
+Candidates: come home, airplane, learn from each other, go out, make art
+Answer: come home
+Explanation: 
+
+Input: If you aren't in a jewelry store or looking in a jewelry box where might you find a choker?
+Candidates: boutique, kennel, jewelry box, pet store, jewelry store
+Answer: boutique
+Explanation: 
+
+Input: where is the information superhighway?
+Candidates: heavily travelled area, cyberspace, industrialized country, on the internet., computer network
+Answer: cyberspace
+Explanation: 
+
+Input: As the fox ran into the forest it disappeared into the what?
+Candidates: nantucket, barn, northern hemisphere, hen house, undergrowth
+Answer: undergrowth
+Explanation: 
+
+Input: On what device can you watch a program without leaving your home?
+Candidates: television, microwave, concert, theater, opera
+Answer: television
+Explanation: 
+
+Input: When the woman put her belonging  in the drawstring bag, how did she want her things to stay?
+Candidates: safe, department store, military, tied up, airport
+Answer: safe
+Explanation: 
+
+Input: {question}
+Candidates: {cands}
+Answer: {answer}
+Explanation: 

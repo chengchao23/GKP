@@ -1,0 +1,12 @@
+name: test
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - python=3.8
+  - pytorch=1.11
+  - transformers
+  - cudatoolkit=11.3
+  - numpy
+  - pandas
+  - tqdm

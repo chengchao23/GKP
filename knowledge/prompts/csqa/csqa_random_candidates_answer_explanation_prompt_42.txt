@@ -1,0 +1,41 @@
+Generate explanations for the answer to questions. Examples:
+
+Input: He fantasied about getting a what while driving to work and the pros and cons of the extra responsibilities and benefits?
+Candidates: new car, promotion, boredom, impatience, pressure
+Answer: promotion
+Explanation: In job fantasies, a promotion brings to mind the pros and cons of extra responsibilities and benefits
+
+Input: He was good at traditional science but excelled at social science, his favorite subject was what?
+Candidates: geography, history studies, math, religion, dancing
+Answer: history studies
+Explanation: History studies belongs to social science, geography and math belong to traditional science, because he was good at traditional science but excelled at social science, so his favorite subject is history studies.
+
+Input: Jan wasn't very good at studying.  What might help him study better?
+Candidates: having a bigger brain, headaches, inspiration, more intelligence, understanding
+Answer: more intelligence
+Explanation: A person is not good at studying, more intelligence can help him study better, having a bigger brain doesn't necessarily lead to study better, comprehension helps understanding, inspiration helps creativity.
+
+Input: The cat was wild but like all others he was always read for a cat what?
+Candidates: stealing, four legs, tuna fish, food now, nap
+Answer: nap
+Explanation: Compared with cats belonging to wild animals, people usually think cats are docile and cute, because cats are always napping.
+
+Input: Cats are easily entertained, they love to what?
+Candidates: need food, go bowling, go outside, go out at night, play with toys
+Answer: play with toys
+Explanation: Pets love to be entertained by f playing with toys and cats are common pets, so cats love to play with toys, food and going outside are just cat's habits.
+
+Input: What do we feel when we run out of energy?
+Candidates: fatigue, matter, weakness, deprived, mass
+Answer: weakness
+Explanation: When people run out of energy, they are usually very weak，fatigue usually occurs after overwork, and deprivation refers to a lack of life-sustaining things.
+
+Input: The previous hotel was bad, so what did the pleased visitor think of the hotel?
+Candidates: badarse, adequate, propitious, first rate, manual
+Answer: adequate
+Explanation: Because the previous hotel was not good, the visitor was unhappy. Because the visitor is pleased, so the hotel is good enough and adequate, but not sure it is first rate.
+
+Input: {question}
+Candidates: {cands}
+Answer: {answer}
+Explanation: 
