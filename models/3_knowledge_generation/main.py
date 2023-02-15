@@ -179,12 +179,15 @@ def train(model, tokenizer, train_data, dev_data, warmup_steps, args):
             scheduler.step()
             model.zero_grad()
         end_time = time.time()
-        if args.loss_func == 'nce_loss':
-            print("Epoch %d -> Loss: %.5f, Nce_loss: %.5f, Nll_loss: %.5f, a: %.5f, Time is %.2fs" % (i, epoch_loss, epoch_nce_loss, epoch_nll_loss, model.alpha, end_time - start_time), flush=True)
-        elif args.loss_func == 'pair_loss':
-            print("Epoch %d -> Loss: %.5f, Pair_loss: %.5f, Nll_loss: %.5f, a: %.5f, Time is %.2fs" % (i, epoch_loss, epoch_pair_loss, epoch_nll_loss, model.alpha, end_time - start_time), flush=True)
+        if args.without_contrastive:
+            print("Epoch %d -> Loss: %.5f, Nll_loss: %.5f, Time is %.2fs" % (i, epoch_loss, epoch_nll_loss, end_time - start_time), flush=True)
         else:
-            raise NotImplementedError(f'{args.loss_func} is not implemented')
+            if args.loss_func == 'nce_loss':
+                print("Epoch %d -> Loss: %.5f, Nce_loss: %.5f, Nll_loss: %.5f, a: %.5f, Time is %.2fs" % (i, epoch_loss, epoch_nce_loss, epoch_nll_loss, model.alpha, end_time - start_time), flush=True)
+            elif args.loss_func == 'pair_loss':
+                print("Epoch %d -> Loss: %.5f, Pair_loss: %.5f, Nll_loss: %.5f, a: %.5f, Time is %.2fs" % (i, epoch_loss, epoch_pair_loss, epoch_nll_loss, model.alpha, end_time - start_time), flush=True)
+            else:
+                raise NotImplementedError(f'{args.loss_func} is not implemented')
         model.eval()
         if i == 1:
             lowest_loss = epoch_loss

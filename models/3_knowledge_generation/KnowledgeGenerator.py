@@ -31,10 +31,10 @@ class KnowledgeGenerator(nn.Module):
         self.ignore_index = args.ignore_index
         self.loss_fct = CrossEntropyLoss(ignore_index=self.ignore_index)
         self.linear_layer = nn.Sequential(
-                                nn.Linear(self.hidden_size, self.linear_hidden_size),
-                                nn.ReLU(),
-                                nn.Linear(self.linear_hidden_size, self.hidden_size)
-                            )
+            nn.Linear(self.hidden_size, self.linear_hidden_size),
+            nn.ReLU(),
+            nn.Linear(self.linear_hidden_size, self.hidden_size)
+        )
         self.cos = CosineSimilarity(dim=-1)
         self.without_contrastive = args.without_contrastive
         self.loss_func = args.loss_func
@@ -78,11 +78,13 @@ class KnowledgeGenerator(nn.Module):
         beam_indices = torch.where(beam_indices > 0, beam_indices, 0)
         decoder_hidden_states = ret_dict["decoder_hidden_states"]
         # get the hidden_states from the last layer of decoder
-        hidden_states_from_output = torch.cat([decoder_hidden_states[i][-1] for i in range(len(decoder_hidden_states))], dim=1)  # beam, seq_len, h
+        hidden_states_from_output = torch.cat([decoder_hidden_states[i][-1] for i in range(len(decoder_hidden_states))],
+                                              dim=1)  # beam, seq_len, h
         h = hidden_states_from_output.shape[-1]
         # dim=0
         # beam_indices -> [num_return_sequences, seq_len+1, h]
-        decoder_hidden_states = torch.gather(hidden_states_from_output, 0, beam_indices[:, :-1].unsqueeze(-1).repeat(1, 1, h))
+        decoder_hidden_states = torch.gather(hidden_states_from_output, 0,
+                                             beam_indices[:, :-1].unsqueeze(-1).repeat(1, 1, h))
         encoder_hidden_states = ret_dict["encoder_hidden_states"][-1]  # [src_len, h]
         encoder_feature = self.affine_transformation(encoder_hidden_states, attention_mask)  # [1, h]
         decoder_feature = self.affine_transformation(decoder_hidden_states, cand_mask[:, :-1])  # [beam_size, h]
@@ -115,12 +117,8 @@ class KnowledgeGenerator(nn.Module):
         lm_logits = self.generator.lm_head(decoder_last_layer)
         # negative log likelihood (NLL) loss
         knowledge_output_ids[knowledge_output_ids == 0] = self.ignore_index
-        if self.without_contrastive:
-            nll_loss = self.loss_fct(lm_logits.permute(0, 2, 1), knowledge_output_ids)
-            return {'nll_loss': nll_loss}
         positive_mask = (p_n_tag == 1)
         nll_loss = self.loss_fct(lm_logits[positive_mask].permute(0, 2, 1), knowledge_output_ids[positive_mask])
-        # nll_loss = self.loss_fct(lm_logits.permute(0, 2, 1), knowledge_output_ids)
 
         # negative sample
         if sum(p_n_tag) != batch_size:
