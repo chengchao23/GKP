@@ -138,13 +138,14 @@ def train(model, tokenizer, train_data, dev_data, warmup_steps, args):
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=-1)
     batched_train_data = batching_list_instances(batch_size, train_data)
 
-    evaluate_model(model, dev_data, 'dev', tokenizer, args)
+    # evaluate_model(model, dev_data, 'dev', tokenizer, args)
 
     lowest_loss = 0
     for i in tqdm(range(1, epochs + 1), desc="Epoch"):
         epoch_loss = 0
         epoch_nll_loss = 0
         epoch_nce_loss = 0
+        epoch_pair_loss = 0
         start_time = time.time()
         model.train()
         model.zero_grad()
@@ -156,9 +157,14 @@ def train(model, tokenizer, train_data, dev_data, warmup_steps, args):
                     loss = model(query_ids, knowledge_input_ids, knowledge_output_ids, p_n_tag)
                     total_loss = loss.get('total_loss')
                     epoch_nll_loss += loss.get('nll_loss').item()
-                    if loss.get('nce_loss') is not None:
+                    if args.loss_func == 'nce_loss' and loss.get('nce_loss') is not None:
                         epoch_nce_loss += loss.get('nce_loss').item()
+                    elif args.loss_func == 'pair_loss' and loss.get('pair_loss') is not None:
+                        epoch_pair_loss += loss.get('pair_loss').item()
+                    else:
+                        continue
                 else:
+                    print('has a bad batch')
                     continue
             elif 'gpt2' in args.LM:
                 input_ids, input_attention_mask = simple_batching(batched_train_data[index], tokenizer, args)
@@ -173,7 +179,12 @@ def train(model, tokenizer, train_data, dev_data, warmup_steps, args):
             scheduler.step()
             model.zero_grad()
         end_time = time.time()
-        print("Epoch %d -> Loss: %.5f, Nce_loss: %.5f, Nll_loss: %.5f, a: %.5f, Time is %.2fs" % (i, epoch_loss, epoch_nce_loss, epoch_nll_loss, model.alpha, end_time - start_time), flush=True)
+        if args.loss_func == 'nce_loss':
+            print("Epoch %d -> Loss: %.5f, Nce_loss: %.5f, Nll_loss: %.5f, a: %.5f, Time is %.2fs" % (i, epoch_loss, epoch_nce_loss, epoch_nll_loss, model.alpha, end_time - start_time), flush=True)
+        elif args.loss_func == 'pair_loss':
+            print("Epoch %d -> Loss: %.5f, Pair_loss: %.5f, Nll_loss: %.5f, a: %.5f, Time is %.2fs" % (i, epoch_loss, epoch_pair_loss, epoch_nll_loss, model.alpha, end_time - start_time), flush=True)
+        else:
+            raise NotImplementedError(f'{args.loss_func} is not implemented')
         model.eval()
         if i == 1:
             lowest_loss = epoch_loss
@@ -228,12 +239,14 @@ def parse_arguments(parser):
     parser.add_argument('--num_epochs', type=int, default=5, help="Usually we set to 5.")
 
     # model hyperparameter
-    parser.add_argument('--alpha', type=float, default=0.1)
+    parser.add_argument('--loss_func', type=str, default='nce_loss', choices=['nce_loss', 'pair_loss'])
+    parser.add_argument('--alpha', type=float, default=0.5)
     parser.add_argument('--lr', type=float, default=1e-5)
     parser.add_argument('--optimizer', type=str, default="adam")
     parser.add_argument('--LM', type=str, default='pretrained_models/t5-large')
+    parser.add_argument('--linear_hidden_size', type=int, default=1024)
     parser.add_argument('--task_prefix', type=str, default="Generating explanations for question with candidates:")
-    parser.add_argument('--pad_id', type=int)
+    parser.add_argument('--pad_id', type=int, default=0)
     parser.add_argument('--without_contrastive', action='store_true')
     parser.add_argument('--early_stop', type=bool, default=True)
 
@@ -241,7 +254,7 @@ def parse_arguments(parser):
     parser.add_argument('--temperature', type=float, default=0.9)
     parser.add_argument('--top_k', type=int, default=50)
     parser.add_argument('--top_p', type=float, default=0.5)
-    parser.add_argument('--beam_size', type=int, default=5)
+    parser.add_argument('--beam_size', type=int, default=6)
     parser.add_argument('--max_length', type=int, default=128)
     parser.add_argument('--min_length', type=int, default=0)
     parser.add_argument('--length_pen', type=float, default=0.8)

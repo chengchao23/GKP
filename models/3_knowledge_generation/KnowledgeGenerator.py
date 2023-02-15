@@ -26,16 +26,18 @@ class KnowledgeGenerator(nn.Module):
         self.LM = args.LM
         self.pad_id = args.pad_id
         self.hidden_size = self.generator.config.hidden_size
+        self.linear_hidden_size = args.linear_hidden_size
         self.vocab_size = self.generator.config.vocab_size
         self.ignore_index = args.ignore_index
         self.loss_fct = CrossEntropyLoss(ignore_index=self.ignore_index)
         self.linear_layer = nn.Sequential(
-                                nn.Linear(self.hidden_size, 1024),
+                                nn.Linear(self.hidden_size, self.linear_hidden_size),
                                 nn.ReLU(),
-                                nn.Linear(1024, self.hidden_size)
-                                          )
+                                nn.Linear(self.linear_hidden_size, self.hidden_size)
+                            )
         self.cos = CosineSimilarity(dim=-1)
         self.without_contrastive = args.without_contrastive
+        self.loss_func = args.loss_func
         self.alpha = args.alpha
 
     def affine_transformation(self, input_features, padding_mask, axis=1):
@@ -52,8 +54,8 @@ class KnowledgeGenerator(nn.Module):
         ret_dict = self.generator.generate(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            num_return_sequences=8,
-            num_beams=10,
+            num_return_sequences=args.beam_size,
+            num_beams=args.beam_size,
             max_length=args.max_length + 2,
             # +2 from original because we start at step=1 and stop before max_length
             min_length=args.min_length + 1,  # +1 from original because we start at step=1
@@ -86,8 +88,12 @@ class KnowledgeGenerator(nn.Module):
         decoder_feature = self.affine_transformation(decoder_hidden_states, cand_mask[:, :-1])  # [beam_size, h]
         cos_distance = self.cos(encoder_feature, decoder_feature)  # beam_size
         cos_distance = cos_distance.exp()
-        index = torch.argmax(cos_distance)  # beam_size
-        result = cand_ids[index]
+
+        sequences_scores = ret_dict["sequences_scores"]  # beam_size
+        normalize = torch.sum(0 - sequences_scores, keepdim=True, dim=-1)
+        scores = (1 - args.alpha) * (sequences_scores / normalize) + args.alpha * cos_distance
+        max_index = torch.argmax(scores, dim=-1)  # 1
+        result = cand_ids[max_index]
         return result  # [sequence_length]
 
     def forward(self, query_ids, knowledge_input_ids, knowledge_output_ids, p_n_tag):
@@ -128,20 +134,31 @@ class KnowledgeGenerator(nn.Module):
             negative_decoder_hidden_states = self.affine_transformation(
                 decoder_last_layer[negative_mask], knowledge_input_attention_mask[negative_mask])
             pos_pos_examples_cos = self.cos(positive_encoder_hidden_states, positive_decoder_hidden_states)
-            pos_pos_examples_cos = pos_pos_examples_cos.exp()
             pos_neg_examples_cos = self.cos(
                 positive_encoder_hidden_states.repeat_interleave(neg_num, dim=0),  # [neg_num*pos_num, h]
                 negative_decoder_hidden_states.repeat(pos_num, 1)  # [neg_num*pos_num, h]
             )  # [neg_num*pos_num]
-            pos_neg_examples_cos = pos_neg_examples_cos.exp()
-            pos_neg_examples_cos = pos_neg_examples_cos.reshape(neg_num, pos_num).sum(0)
 
-            # pos_pos_examples_cos = pos_pos_examples_cos.sum()
-            # pos_neg_examples_cos = pos_neg_examples_cos.sum()
+            if self.loss_func == 'nce_loss':
+                pos_pos_examples_cos = pos_pos_examples_cos.exp()  # [pos_num]
+                pos_neg_examples_cos = pos_neg_examples_cos.exp()  # [neg_num*pos_num]
+                pos_neg_examples_cos = pos_neg_examples_cos.reshape(neg_num, pos_num).sum(0)
+                # pos_pos_examples_cos = pos_pos_examples_cos.sum()
+                # pos_neg_examples_cos = pos_neg_examples_cos.sum()
+                examples_cos = pos_pos_examples_cos / pos_neg_examples_cos
+                nce_loss = torch.sum(-torch.log(examples_cos))
+                return {'total_loss': (1 - self.alpha) * nll_loss + self.alpha * nce_loss, 'nll_loss': nll_loss,
+                        'nce_loss': nce_loss}
+            elif self.loss_func == 'pair_loss':
+                pos_pos_examples_cos = pos_pos_examples_cos.repeat_interleave(neg_num, dim=0)  # [neg_num*pos_num]
+                ones = torch.ones(pos_pos_examples_cos.size(), device=pos_pos_examples_cos.device)
+                marginLoss = nn.MarginRankingLoss(reduction='none')
+                pair_loss = marginLoss(pos_pos_examples_cos, pos_neg_examples_cos, ones)
+                pair_loss = pair_loss.sum()
+                return {'total_loss': (1 - self.alpha) * nll_loss + self.alpha * pair_loss, 'nll_loss': nll_loss,
+                        'pair_loss': pair_loss}
+            else:
+                raise NotImplementedError(f'{args.loss_func} is not implemented')
 
-            examples_cos = pos_pos_examples_cos / pos_neg_examples_cos
-            nce_loss = torch.sum(-torch.log(examples_cos))
-            return {'total_loss': nll_loss + self.alpha * nce_loss, 'nll_loss': nll_loss,
-                    'nce_loss': nce_loss}
         else:
             return {'total_loss': nll_loss, 'nll_loss': nll_loss}
