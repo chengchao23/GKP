@@ -11,7 +11,8 @@ def preprocess_data(data):
     for d in data:
         question = d['query']
         for k in d['knowledges']:
-            question_with_knowledge.append({'query': question, 'cands': d['cands'], 'answer': d['answer'], 'knowledge': k})
+            if len(k) != 0:
+                question_with_knowledge.append({'query': question, 'cands': d['cands'], 'answer': d['answer'], 'knowledge': k})
     return question_with_knowledge
 
 
@@ -34,13 +35,20 @@ def simple_batching(args, batch_data, tokenizer, word_pad_idx=0):
     max_labels_len = 0
 
     for idx, data in enumerate(batch_data):
-        input_tokens = tokenizer([f"{data['knowledge']} {data['query']}"] * len(data['cands']))
+        if 'unifiedqa-t5' in args.model_name:
+            input_tokens = tokenizer([f"{data['query']} \\n {', '.join(data['cands'])} \\n {data['knowledge']}"] * len(data['cands']))
+            label_tokens = tokenizer(data['cands'], padding='longest')
+        elif 't5' in args.model_name:
+            input_tokens = tokenizer([f"{data['knowledge']} {data['query']}"] * len(data['cands']))
+            label_tokens = tokenizer([f"<extra_id_0> {cand} <extra_id_1>" for cand in data['cands']], padding='longest')
+        else:
+            raise NotImplementedError(f"{args.model_name} are not implemented")
         input_ids = input_tokens.input_ids
         attention_mask = input_tokens.attention_mask
         max_inputs_len = max(max_inputs_len, len(input_ids[0]))
-        label_tokens = tokenizer([f"<extra_id_0> {cand} <extra_id_1>" for cand in data['cands']], padding='longest')
         label_ids = label_tokens.input_ids
         max_labels_len = max(max_labels_len, len(label_ids[0]))
+
         inputs_ids.extend(input_ids)
         attention_masks.extend(attention_mask)
         labels_ids.extend(label_ids)
@@ -67,11 +75,16 @@ def score_for_input(args, tokenizer, model, raw_data):
     num_cands = len(raw_data[0]['cands'])
     tbar = tqdm(batch_data)
     correct, total = 0, 0
+    samples_data = []
+    temp_sample = {'query': batch_data[0][0]['query'],
+                   'cands': batch_data[0][0]['cands'],
+                   'answer': batch_data[0][0]['answer'],
+                   'knowledges': [],
+                   'probs': [],
+                   'preds': [],
+                   'oks': []}
     for data in tbar:
         inputs_ids, attention_masks, labels_ids = simple_batching(args, data, tokenizer)
-        # print(inputs_ids)
-        # print(attention_masks)
-        # print(labels_ids)
         with torch.no_grad():
             logits = model(input_ids=inputs_ids, attention_mask=attention_masks, labels=labels_ids).logits
         loss_fct = torch.nn.CrossEntropyLoss(ignore_index=-100)
@@ -85,8 +98,24 @@ def score_for_input(args, tokenizer, model, raw_data):
             data[i]['ok'] = 1 if data[i]['cands'][data[i]['pred']] == data[i]['answer'] else 0
             correct += data[i]['ok']
             total += 1
+            if data[i]['query'] != temp_sample['query']:
+                # print(temp_sample)
+                samples_data.append(temp_sample)
+                temp_sample = {'query': data[i]['query'],
+                               'cands': data[i]['cands'],
+                               'answer': data[i]['answer'],
+                               'knowledges': [],
+                               'probs': [],
+                               'preds': [],
+                               'oks': []}
+            temp_sample['knowledges'].append(data[i]['knowledge'])
+            temp_sample['probs'].append(data[i]['prob'])
+            temp_sample['preds'].append(data[i]['pred'])
+            temp_sample['oks'].append(data[i]['ok'])
         tbar.set_postfix({'accuracy: ': correct / total})
+    samples_data.append(temp_sample)
     print("num of data with true knowledge: ", correct)
+    return samples_data
 
 
 def main():
@@ -97,7 +126,8 @@ def main():
     parser.add_argument('--input_path', type=str)
     parser.add_argument('--batch_size', type=int, default=8)
     args = parser.parse_args()
-    args.output_path = f'data/{args.task}/filter_results/{args.model_name.split("/")[-1]}_filtered_{args.input_path.split("/")[-1]}'
+    args.output1_path = f'data/{args.task}/filter_results/{args.model_name.split("/")[-1]}_filtered_batched_{args.input_path.split("/")[-1]}'
+    args.output2_path = f'data/{args.task}/filter_results/{args.model_name.split("/")[-1]}_filtered_sampled_{args.input_path.split("/")[-1]}'
     for k in args.__dict__:
         print(k + ": " + str(args.__dict__[k]))
 
@@ -106,13 +136,17 @@ def main():
     model.to(args.device)
     with open(args.input_path) as f:
         jsdata = json.load(f)
+    print("num of jsdata: ", len(jsdata))
     raw_data = preprocess_data(jsdata)
-    print("num of data: ", len(raw_data))
-    score_for_input(args, tokenizer, model, raw_data)
+    print("num of single data: ", len(raw_data))
+    samples_data = score_for_input(args, tokenizer, model, raw_data)
+    print('num of sample data: ', len(samples_data))
     raw_data = raw_data[:len(raw_data) // args.batch_size * args.batch_size]
     print("num of result_data:", len(raw_data))
-    with open(args.output_path, "w") as f:
+    with open(args.output1_path, "w") as f:
         json.dump(raw_data, f, indent=4)
+    with open(args.output2_path, "w") as f:
+        json.dump(samples_data, f, indent=4)
 
 
 if __name__ == '__main__':

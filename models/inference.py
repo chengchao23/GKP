@@ -7,10 +7,22 @@ from tqdm import tqdm
 
 
 def score_for_input(args, tokenizer, model, query, cands, knowledge=None):
-    source = query
-    if knowledge is not None:
-        source = f'{knowledge} {query}'
-    targets = [f'<extra_id_0> {cand} <extra_id_1>' for cand in cands]
+    if 'unifiedqa-t5' in args.model_name:  # T5-ft, UnifiedQA, UnifiedQA-ft
+        source = f'{query} \\n ' + ','.join(cands)
+        if knowledge is not None:
+            source = f'{source} \\n {knowledge}'
+        targets = cands
+    elif 't5' in args.model_name:  # T5
+        source = query
+        if knowledge is not None:
+            source = f"{knowledge} {source}"
+        targets = [f'<extra_id_0> {cand} <extra_id_1>' for cand in cands]
+    else:
+        raise NotImplementedError()
+    # if knowledge is not None:
+    #     source = f'{knowledge} {query}'
+    # f"{query} \\n {', '.join(cands)} \\n {knowledge}"
+    # targets = [f'<extra_id_0> {cand} <extra_id_1>' for cand in cands]
     scores = []
     input_ids = tokenizer(source, return_tensors='pt').input_ids.to(args.device)
     for i, cand in enumerate(cands):
@@ -64,7 +76,7 @@ def main():
         print(k + ": " + str(args.__dict__[k]))
     
     tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_name)
-    model = transformers.T5ForConditionalGeneration.from_pretrained(args.model_name)
+    model = transformers.T5ForConditionalGeneration.from_pretrained(args.model_name, cache_dir="pretrained_models/")
     if 't5-11b' in args.model_name:
         model.spread_on_devices()
     else:

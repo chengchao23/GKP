@@ -69,8 +69,17 @@ def score_for_input(args, model, tokenizer, raw_data):
     batch_data = batching_list_instances(args, raw_data)
     print("num of batches: ", len(batch_data))
     correct, total = 0, 0
-    tbar = tqdm(enumerate(batch_data))
-    for index, data in tbar:
+    tbar = tqdm(batch_data)
+    samples_data = []
+    temp_sample = {'query': batch_data[0][0]['query'],
+                   'cands': batch_data[0][0]['cands'],
+                   'answer': batch_data[0][0]['answer'],
+                   'knowledges': [],
+                   'probs': [],
+                   'preds': [],
+                   'oks': []}
+
+    for data in tbar:
         if 'bart' not in args.model_name:
             inputs_ids, inputs_token_type_ids, attention_masks = simple_batching(args, data, tokenizer)
             with torch.no_grad():
@@ -81,21 +90,38 @@ def score_for_input(args, model, tokenizer, raw_data):
             with torch.no_grad():
                 outputs = model(inputs_ids, attention_mask=attention_masks, labels=None, return_dict=True)
         scores = torch.softmax(outputs.logits, dim=1).cpu().numpy()  # [batch_size, 3]
-        for i in range(args.batch_size):
-            raw_data[index * args.batch_size + i]['score'] = scores[i].tolist()
+
+        for i in range(len(data)):
+            data[i]['score'] = scores[i].tolist()
             # 筛选规则1：问题和知识的关系为蕴含关系
             if args.nli_rational == 'entail':
-                raw_data[index * args.batch_size + i]['ok'] = 1 if np.argmax(scores[i]) == 0 else 0
+                data[i]['ok'] = 1 if np.argmax(scores[i]) == 0 else 0
             # 筛选规则2：问题和知识的关系为蕴含关系或中立关系（即非对立关系）
             elif args.nli_rational == 'entail_neutral':
-                raw_data[index * args.batch_size + i]['ok'] = 1 if np.argmax(scores[i]) != 2 else 0
+                data[i]['ok'] = 1 if np.argmax(scores[i]) != 2 else 0
             else:
                 raise RuntimeError("args.nli_rational didn't has choice:", {args.nli_rational})
-            correct += raw_data[index * args.batch_size + i]['ok']
+            correct += data[i]['ok']
             total += 1
+            if data[i]['query'] != temp_sample['query']:
+                # print(temp_sample)
+                samples_data.append(temp_sample)
+                temp_sample = {'query': data[i]['query'],
+                               'cands': data[i]['cands'],
+                               'answer': data[i]['answer'],
+                               'knowledges': [],
+                               'probs': [],
+                               'preds': [],
+                               'oks': []}
+            temp_sample['knowledges'].append(data[i]['knowledge'])
+            temp_sample['probs'].append(data[i]['prob'])
+            temp_sample['preds'].append(data[i]['pred'])
+            temp_sample['oks'].append(data[i]['ok'])
+
         tbar.set_postfix({'Accuracy: ': correct / total})
+    samples_data.append(temp_sample)
     print("num of data with true knowledge: ", correct)
-    return raw_data
+    return samples_data
 
 
 def main():
@@ -107,7 +133,8 @@ def main():
     parser.add_argument('--input_path', type=str)
     parser.add_argument('--nli_rational', type=str, default='entail', choices=['entail', 'entail_neutral'])
     args = parser.parse_args()
-    args.output_path = f'data/{args.task}/filter_results/{args.model_name.split("/")[-1]}_filtered_{args.nli_rational}_{args.input_path.split("/")[-1]}'
+    args.output1_path = f'data/{args.task}/filter_results/{args.model_name.split("/")[-1]}_filtered_batched_{args.nli_rational}_{args.input_path.split("/")[-1]}'
+    args.output2_path = f'data/{args.task}/filter_results/{args.model_name.split("/")[-1]}_filtered_sampled_{args.nli_rational}_{args.input_path.split("/")[-1]}'
     for k in args.__dict__:
         print(k + ": " + str(args.__dict__[k]))
 
@@ -116,13 +143,17 @@ def main():
     model.to(args.device)
     with open(args.input_path) as f:
         jsdata = json.load(f)
+    print("num of jsdata: ", len(jsdata))
     raw_data = preprocess_data(jsdata)
-    print("num of data:", len(raw_data))
-    scores_data = score_for_input(args, model, tokenizer, raw_data)
-    scores_data = scores_data[:len(raw_data) // args.batch_size * args.batch_size]
-    print("num of result_data:", len(scores_data))
-    with open(args.output_path, "w") as f:
-        json.dump(scores_data, f, indent=4)
+    print("num of single data:", len(raw_data))
+    samples_data = score_for_input(args, model, tokenizer, raw_data)
+    print('num of samples_data: ', len(samples_data))
+    raw_data = raw_data[:len(raw_data) // args.batch_size * args.batch_size]
+    print("num of result_data:", len(raw_data))
+    with open(args.output1_path, "w") as f:
+        json.dump(raw_data, f, indent=4)
+    with open(args.output2_path, "w") as f:
+        json.dump(samples_data, f, indent=4)
 
 
 if __name__ == '__main__':

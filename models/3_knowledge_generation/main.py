@@ -39,7 +39,32 @@ def batching_list_instances(batch_size, data, shffule=True):
         batched_data.append(one_batch_data)
     if shffule:
         random.shuffle(batched_data)
+    print("num of batches: ", len(batched_data))
     return batched_data
+
+
+def simple_batching_samples(data, tokenizer, word_pad_idx, args):
+    query = tokenizer(f"{args.task_prefix} {data['query']} {','.join(data['cands'])} explanation:")
+    knowledge = tokenizer(data['knowledges'])
+    query_ids = query['input_ids']
+    knowledge_input_ids = []
+    for k in knowledge['input_ids']:
+        knowledge_input_ids.append([args.pad_id] + k[:-1])
+    knowledge_output_ids = knowledge['input_ids']
+    knowledge_lens = [len(k) for k in knowledge['input_ids']]
+    max_knowledge_len = max(knowledge_lens)
+    for i, knowledge_input_idx in enumerate(knowledge_input_ids):
+        pad_word_num = max_knowledge_len - len(knowledge_input_idx)
+        knowledge_input_ids[i].extend([word_pad_idx] * pad_word_num)
+    for i, knowledge_output_idx in enumerate(knowledge_output_ids):
+        pad_word_num = max_knowledge_len - len(knowledge_output_idx)
+        knowledge_output_ids[i].extend([word_pad_idx] * pad_word_num)
+    query_ids = torch.LongTensor(query_ids).to(args.device)
+    query_ids = query_ids.repeat(len(data['knowledges']), 1)
+    knowledge_input_ids = torch.LongTensor(knowledge_input_ids).to(args.device)
+    knowledge_output_ids = torch.LongTensor(knowledge_output_ids).to(args.device)
+    p_n_tag = torch.LongTensor(data['oks']).to(args.device)
+    return query_ids, knowledge_input_ids, knowledge_output_ids, p_n_tag
 
 
 def simple_batching(batch_data, tokenizer, word_pad_idx, args):
@@ -66,7 +91,7 @@ def simple_batching(batch_data, tokenizer, word_pad_idx, args):
     for idx, data in enumerate(batch_data):
         p_n_tag.append(data['ok'])
         if 't5' in args.LM:
-            query = tokenizer(f"{args.task_prefix} {data['query']} {','.join(data['cands'])} explanation:")
+            query = tokenizer(f"{args.task_prefix} {data['query']} {', '.join(data['cands'])} explanation:")
             knowledge = tokenizer(data['knowledge'])
             query_idx = query['input_ids']
             knowledge_input_idx = [args.pad_id] + knowledge['input_ids'][:-1]
@@ -117,6 +142,7 @@ def simple_batching(batch_data, tokenizer, word_pad_idx, args):
 
 def train(model, tokenizer, train_data, dev_data, warmup_steps, args):
     batch_size = args.batch_size
+    accumulate_steps = args.accumulate_steps
     epochs = args.num_epochs
     lr = args.lr
     model = model.to(args.device)
@@ -136,10 +162,13 @@ def train(model, tokenizer, train_data, dev_data, warmup_steps, args):
     else:
         raise RuntimeError("args.optimizer is not implemented")
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=-1)
-    batched_train_data = batching_list_instances(batch_size, train_data)
-
+    if 'batched' in args.train_data_file:
+        batched_train_data = batching_list_instances(batch_size, train_data)
+    elif 'sampled' in args.train_data_file:
+        batched_train_data = train_data
+    else:
+        raise NotImplementedError()
     # evaluate_model(model, dev_data, 'dev', tokenizer, args)
-
     lowest_loss = 0
     for i in tqdm(range(1, epochs + 1), desc="Epoch"):
         epoch_loss = 0
@@ -150,42 +179,50 @@ def train(model, tokenizer, train_data, dev_data, warmup_steps, args):
         model.train()
         model.zero_grad()
         for index in tqdm(np.random.permutation(len(batched_train_data))):
-            if 't5' in args.LM:
+            if 'batched' in args.train_data_file:
                 query_ids, knowledge_input_ids, knowledge_output_ids, p_n_tag = simple_batching(
                     batched_train_data[index], tokenizer, args.pad_id, args)
-                if sum(p_n_tag) != 0:
-                    loss = model(query_ids, knowledge_input_ids, knowledge_output_ids, p_n_tag)
-                    total_loss = loss.get('total_loss')
-                    epoch_nll_loss += loss.get('nll_loss').item()
-                    if args.loss_func == 'nce_loss' and loss.get('nce_loss') is not None:
-                        epoch_nce_loss += loss.get('nce_loss').item()
-                    elif args.loss_func == 'pair_loss' and loss.get('pair_loss') is not None:
-                        epoch_pair_loss += loss.get('pair_loss').item()
-                    else:
-                        continue
-                else:
-                    print('has a bad batch')
+                if sum(p_n_tag) == 0:
                     continue
-            elif 'gpt2' in args.LM:
-                input_ids, input_attention_mask = simple_batching(batched_train_data[index], tokenizer, args)
-                output = model(input_ids=input_ids, attention_mask=input_attention_mask,
-                               labels=input_ids, return_dict=True)
-                total_loss = output[0]
+            elif 'sampled' in args.train_data_file:
+                query_ids, knowledge_input_ids, knowledge_output_ids, p_n_tag = simple_batching_samples(
+                    batched_train_data[index], tokenizer, args.pad_id, args)
             else:
-                raise RuntimeError("args.LM is not implemented")
-            total_loss.backward()
+                raise NotImplementedError()
+            loss = model(query_ids, knowledge_input_ids, knowledge_output_ids, p_n_tag)
+            total_loss = loss.get('total_loss')
             epoch_loss += total_loss.item()
-            optimizer.step()
-            scheduler.step()
-            model.zero_grad()
+            epoch_nll_loss += loss.get('nll_loss').item()
+            if args.loss_func == 'nce_loss' and loss.get('nce_loss') is not None:
+                epoch_nce_loss += loss.get('nce_loss').item()
+            elif args.loss_func == 'pair_loss' and loss.get('pair_loss') is not None:
+                epoch_pair_loss += loss.get('pair_loss').item()
+
+            if 'batched' in args.train_data_file:
+                total_loss.backward()
+                optimizer.step()
+                scheduler.step()
+                model.zero_grad()
+            elif 'sampled' in args.train_data_file:
+                total_loss /= accumulate_steps
+                total_loss.backward()
+                if index % accumulate_steps == 0:
+                    optimizer.step()
+                    scheduler.step()
+                    model.zero_grad()
+            else:
+                raise NotImplementedError()
         end_time = time.time()
         if args.without_contrastive:
-            print("Epoch %d -> Loss: %.5f, Nll_loss: %.5f, Time is %.2fs" % (i, epoch_loss, epoch_nll_loss, end_time - start_time), flush=True)
+            print("Epoch %d -> Loss: %.5f, Nll_loss: %.5f, Time is %.2fs" % (
+                i, epoch_loss, epoch_nll_loss, end_time - start_time), flush=True)
         else:
             if args.loss_func == 'nce_loss':
-                print("Epoch %d -> Loss: %.5f, Nce_loss: %.5f, Nll_loss: %.5f, a: %.5f, Time is %.2fs" % (i, epoch_loss, epoch_nce_loss, epoch_nll_loss, model.alpha, end_time - start_time), flush=True)
+                print("Epoch %d -> Loss: %.5f, Nce_loss: %.5f, Nll_loss: %.5f, Time is %.2fs" % (
+                    i, epoch_loss, epoch_nce_loss, epoch_nll_loss, end_time - start_time), flush=True)
             elif args.loss_func == 'pair_loss':
-                print("Epoch %d -> Loss: %.5f, Pair_loss: %.5f, Nll_loss: %.5f, a: %.5f, Time is %.2fs" % (i, epoch_loss, epoch_pair_loss, epoch_nll_loss, model.alpha, end_time - start_time), flush=True)
+                print("Epoch %d -> Loss: %.5f, Pair_loss: %.5f, Nll_loss: %.5f, Time is %.2fs" % (
+                    i, epoch_loss, epoch_pair_loss, epoch_nll_loss, end_time - start_time), flush=True)
             else:
                 raise NotImplementedError(f'{args.loss_func} is not implemented')
         model.eval()
@@ -208,7 +245,7 @@ def evaluate_model(model, data, name, tokenizer, args):
     with torch.no_grad():
         for d in tqdm(data):
             tmp = {}
-            query = f"{args.task_prefix} {d['query']} {','.join(d['cands'])} explanation:"
+            query = f"{args.task_prefix} {d['query']} {', '.join(d['cands'])} explanation:"
             query = tokenizer([query], return_tensors='pt').to(args.device)
             result = model.generate(query['input_ids'], query['attention_mask'], args)
             predicted_text = tokenizer.decode(result, skip_special_tokens=True)
@@ -239,15 +276,16 @@ def parse_arguments(parser):
     # parser.add_argument('--model_dir', type=str, default="")
     # parser.add_argument('--model_folder', type=str, default="", help="The name to save the model files")
     parser.add_argument('--batch_size', type=int, default=12, help="default batch size is 12")
+    parser.add_argument('--accumulate_steps', type=int, default=10, help="default batch size is 8")
     parser.add_argument('--num_epochs', type=int, default=5, help="Usually we set to 5.")
 
     # model hyperparameter
-    parser.add_argument('--loss_func', type=str, default='nce_loss', choices=['nce_loss', 'pair_loss'])
-    parser.add_argument('--alpha', type=float, default=0.5)
-    parser.add_argument('--lr', type=float, default=1e-5)
+    # parser.add_argument('--alpha', type=float, default=0.5)
+    # parser.add_argument('--dropout', type=float, default=0.5)
+    parser.add_argument('--loss_func', type=str, default='pair_loss', choices=['nce_loss', 'pair_loss'])
+    parser.add_argument('--lr', type=float, default=3e-5)
     parser.add_argument('--optimizer', type=str, default="adam")
     parser.add_argument('--LM', type=str, default='pretrained_models/t5-large')
-    parser.add_argument('--linear_hidden_size', type=int, default=1024)
     parser.add_argument('--task_prefix', type=str, default="Generating explanations for question with candidates:")
     parser.add_argument('--pad_id', type=int, default=0)
     parser.add_argument('--without_contrastive', action='store_true')
@@ -257,7 +295,7 @@ def parse_arguments(parser):
     parser.add_argument('--temperature', type=float, default=0.9)
     parser.add_argument('--top_k', type=int, default=50)
     parser.add_argument('--top_p', type=float, default=0.5)
-    parser.add_argument('--beam_size', type=int, default=6)
+    parser.add_argument('--beam_size', type=int, default=10)
     parser.add_argument('--max_length', type=int, default=128)
     parser.add_argument('--min_length', type=int, default=0)
     parser.add_argument('--length_pen', type=float, default=0.8)
@@ -281,24 +319,49 @@ def main():
     args.bos_id = tokenizer.bos_token_id
 
     model = KnowledgeGenerator(args)
-
+    train_data = []
     with open(args.train_data_file) as f:
         jsdata = json.load(f)
-        print('num of filtered data:', len(jsdata))
-        for data in jsdata:
-            if len(data['knowledge']) == 0:
-                jsdata.remove(data)
-        if args.without_contrastive:
+        print('num of jsdata:', len(jsdata))
+        if 'batched' in args.train_data_file:
             for data in jsdata:
-                if data['ok'] == 0:
-                    jsdata.remove(data)
-            print('num of true data:', len(jsdata))
-
+                # 删除知识长度为0的知识
+                if len(data['knowledge']) == 0:
+                    continue
+                # 去除样本中的错误知识
+                if args.without_contrastive and data['ok'] == 0:
+                    continue
+                train_data.append(data)
+            print('num of train data:', len(train_data))
+        elif 'sampled' in args.train_data_file:
+            for data in jsdata:
+                # if len(data['knowledges']) != 0:
+                if sum(data['oks']) != 0 and len(data['knowledges']) != 0:
+                    # 删除知识长度为0的知识
+                    for i, k in enumerate(data['knowledges']):
+                        if len(k) == 0:
+                            del data['knowledges'][i]
+                            del data['oks'][i]
+                    # 去除样本中的错误知识
+                    if args.without_contrastive:
+                        new_knowledge = []
+                        new_oks = []
+                        for i, ok in enumerate(data['oks']):
+                            if ok != 0:
+                                new_knowledge.append(data['knowledges'][i])
+                                new_oks.append(data['oks'][i])
+                        data['knowledges'] = new_knowledge
+                        data['oks'] = new_oks
+                    # 与在forward中使用positive_mask进行mask之后计算出loss无明显区别：
+                    # 在样本中剔除: 0.49  vs 在上述办法中mask: 0.489
+                    train_data.append(data)
+            print('num of train data:', len(train_data))
+        else:
+            raise NotImplementedError()
     with open(args.dev_data_file) as f:
-        devdata = json.load(f)
-    print('num of train data:', len(jsdata))
-    print('num of dev data:', len(devdata))
-    train(model, tokenizer, jsdata, devdata, 1000, args)
+        dev_data = json.load(f)
+    print('num of dev data:', len(dev_data))
+    train(model, tokenizer, train_data, dev_data, 1000, args)
 
 
 if __name__ == "__main__":
