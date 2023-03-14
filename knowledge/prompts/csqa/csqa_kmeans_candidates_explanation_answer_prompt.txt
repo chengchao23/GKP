@@ -1,4 +1,4 @@
-Generate explanations for the answer to questions. Examples:
+Generate explanations and answer to questions. Examples:
 
 Input: The christian Sunday school teacher gave out a punishment, this happened when the students did what to her orders?
 Candidates: stumble, rebel, disobey, go astray, commit sin

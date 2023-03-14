@@ -10,9 +10,10 @@ def preprocess_data(data):
     question_with_knowledge = []
     for d in data:
         question = d['query']
-        for k in d['knowledges']:
+        for k in d["knowledges"]:
             if len(k) != 0:
-                question_with_knowledge.append({'query': question, 'cands': d['cands'], 'answer': d['answer'], 'knowledge': k})
+                question_with_knowledge.append(
+                    {'query': question, 'cands': d['cands'], 'answer': d['answer'], 'knowledge': k})
     return question_with_knowledge
 
 
@@ -36,7 +37,8 @@ def simple_batching(args, batch_data, tokenizer, word_pad_idx=0):
 
     for idx, data in enumerate(batch_data):
         if 'unifiedqa-t5' in args.model_name:
-            input_tokens = tokenizer([f"{data['query']} \\n {', '.join(data['cands'])} \\n {data['knowledge']}"] * len(data['cands']))
+            input_tokens = tokenizer(
+                [f"{data['query']} \\n {', '.join(data['cands'])} \\n {data['knowledge']}"] * len(data['cands']))
             label_tokens = tokenizer(data['cands'], padding='longest')
         elif 't5' in args.model_name:
             input_tokens = tokenizer([f"{data['knowledge']} {data['query']}"] * len(data['cands']))
@@ -89,7 +91,8 @@ def score_for_input(args, tokenizer, model, raw_data):
             logits = model(input_ids=inputs_ids, attention_mask=attention_masks, labels=labels_ids).logits
         loss_fct = torch.nn.CrossEntropyLoss(ignore_index=-100)
         # 在这里不使用average-loss 则需要吧loss的item数值乘以labels的有效长度
-        scores = torch.Tensor([-loss_fct(logits[i], labels_ids[i]).item() * sum(labels_ids[i] != -100).item() for i in range(len(inputs_ids))])
+        scores = torch.Tensor([-loss_fct(logits[i], labels_ids[i]).item() * sum(labels_ids[i] != -100).item() for i in
+                               range(len(inputs_ids))])
         scores = scores.reshape(-1, num_cands)  # [batch_size, num_cands]
         probs = torch.softmax(scores, dim=1)
         for i in range(len(data)):
@@ -121,7 +124,7 @@ def score_for_input(args, tokenizer, model, raw_data):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', type=str, default='cpu', choices=['cpu', 'cuda:0', 'cuda:1'])
-    parser.add_argument('--task', type=str, default='csqa', choices=['csqa', 'csqa2', 'numersense', 'qasc'])
+    parser.add_argument('--task', type=str, default='csqa', choices=['csqa', 'csqa2', 'obqa', 'qasc'])
     parser.add_argument('--model_name', type=str, default='pretrained_models/t5-3b')
     parser.add_argument('--input_path', type=str)
     parser.add_argument('--batch_size', type=int, default=8)

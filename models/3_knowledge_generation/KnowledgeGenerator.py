@@ -26,16 +26,13 @@ class KnowledgeGenerator(nn.Module):
         self.LM = args.LM
         self.pad_id = args.pad_id
         self.hidden_size = self.generator.config.hidden_size
-        self.vocab_size = self.generator.config.vocab_size
         self.ignore_index = args.ignore_index
         self.loss_fct = CrossEntropyLoss(ignore_index=self.ignore_index)
         self.query_linear_layer = nn.Linear(self.hidden_size, self.hidden_size)
         self.knowledge_linear_layer = nn.Linear(self.hidden_size, self.hidden_size)
-        self.cross_attention = nn.MultiheadAttention(num_heads=2, embed_dim=self.hidden_size, dropout=0.5)
+        # self.cross_attention = nn.MultiheadAttention(num_heads=2, embed_dim=self.hidden_size, dropout=0.5)
         self.cos = CosineSimilarity(dim=-1)
         self.loss_func = args.loss_func
-
-    # def attention(self, query_features, knowledge_features, padding_mask, axis=-1):
 
     def query_affine_transformation(self, input_features, padding_mask, axis=1):
         length = torch.sum(padding_mask, dim=1) - 1

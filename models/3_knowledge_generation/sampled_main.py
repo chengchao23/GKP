@@ -157,7 +157,6 @@ def parse_arguments(parser):
     parser.add_argument('--num_epochs', type=int, default=7, help="Usually we set to 7.")
 
     # model hyperparameter
-    # parser.add_argument('--alpha', type=float, default=0.5)
     parser.add_argument('--loss_func', type=str, default='pair_loss', choices=['nce_loss', 'pair_loss'])
     parser.add_argument('--lr', type=float, default=3e-5)
     parser.add_argument('--optimizer', type=str, default="adam")

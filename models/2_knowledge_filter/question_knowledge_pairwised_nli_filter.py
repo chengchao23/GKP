@@ -12,7 +12,8 @@ def preprocess_data(data):
         question = d['query']
         for k in d['knowledges']:
             if len(k) != 0:
-                question_with_knowledge.append({'query': question, 'cands': d['cands'], 'answer': d['answer'], 'knowledge': k})
+                question_with_knowledge.append(
+                    {'query': question, 'cands': d['cands'], 'answer': d['answer'], 'knowledge': k})
     return question_with_knowledge
 
 
@@ -75,8 +76,7 @@ def score_for_input(args, model, tokenizer, raw_data):
                    'cands': batch_data[0][0]['cands'],
                    'answer': batch_data[0][0]['answer'],
                    'knowledges': [],
-                   'probs': [],
-                   'preds': [],
+                   'scores': [],
                    'oks': []}
 
     for data in tbar:
@@ -110,12 +110,10 @@ def score_for_input(args, model, tokenizer, raw_data):
                                'cands': data[i]['cands'],
                                'answer': data[i]['answer'],
                                'knowledges': [],
-                               'probs': [],
-                               'preds': [],
+                               'scores': [],
                                'oks': []}
             temp_sample['knowledges'].append(data[i]['knowledge'])
-            temp_sample['probs'].append(data[i]['prob'])
-            temp_sample['preds'].append(data[i]['pred'])
+            temp_sample['scores'].append(data[i]['score'])
             temp_sample['oks'].append(data[i]['ok'])
 
         tbar.set_postfix({'Accuracy: ': correct / total})

@@ -168,8 +168,6 @@ def parse_arguments(parser):
     parser.add_argument('--ignore_index', default=-100, type=int)
 
     args = parser.parse_args()
-    if args.only_oks:
-        args.number = 'sampled_baseline_only_oks'
     for k in args.__dict__:
         print(k + ": " + str(args.__dict__[k]))
     return args

@@ -1,0 +1,41 @@
+Generate explanations for the answer to questions. Examples:
+
+Input: What is a child likely hoping to achieve by going to play?
+Candidates: have fun, enjoyment, rush, being entertained, get hungry
+Answer: have fun
+Explanation: Children going to play to have fun, not to be entertained. Enjoyment is not the purpose of children's play. Getting hungry is a possible result after going out to play.
+
+Input: A small dog is lost in Copenhagen, what is the dogs likely nationality?
+Candidates: denmark, new hampshire, backyard, danish, coffin
+Answer: denmark
+Explanation: Copenhagen is the capital of Denmark, the small dog is lost in Copenhagen, so its nationality is Denmark.
+
+Input: What is the opposite of hosting a crowd?
+Candidates: few people, pay debts, individual, single person, small group
+Answer: few people
+Explanation: Hosting a crowd means having a large number of people, the opposite concept of "a large number of people" is "few people".
+
+Input: They're living conditions put restrictions on their pet ownership, they only had a small dog because they lived where?
+Candidates: small apartment, backyard, big house, living room, mansion
+Answer: small apartment
+Explanation: Raising a small dog usually requires a larger space, because living conditions put restrictions on their small dog ownership, so they live in small apartment.
+
+Input: When people are honest, what do they tend to do?
+Candidates: tell truth, own objects, pay bills, selling food, buy cake
+Answer: tell truth
+Explanation: Telling the truth means being honest, so when people are honest, they tend to tell truth.
+
+Input: where do you use a tourniquet temporarily?
+Candidates: doctor's office, ambulance, applying even pressure, hospital, emergency kit
+Answer: ambulance
+Explanation: If an ambulance is called because someone is bleeding, you will use a tourniquet temporarily in the ambulance.
+
+Input: In what state would you find the Shenandoah Valley?
+Candidates: west virginia, mountainous region, montana, continent, earth
+Answer: west virginia
+Explanation: You need to know where it is located when you want to find something, the Shenandoah Valley is located in state of Virginia, USA.
+
+Input: {question}
+Candidates: {cands}
+Answer: {answer}
+Explanation: 

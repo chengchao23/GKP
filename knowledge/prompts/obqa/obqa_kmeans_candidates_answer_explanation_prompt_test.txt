@@ -1,0 +1,41 @@
+Generate explanations for the answer to questions. Examples:
+
+Input: sunlight is a heat source emitted from
+Candidates: a white dwarf star, our only yellow star, a nearby quasar star, a red giant star
+Answer: our only yellow star
+Explanation: 
+
+Input: Naomi looks around outside on a prairie and it is cloudless but the sun is nowhere to be seen. It is
+Candidates: night, noon, morning, afternoon
+Answer: night
+Explanation: 
+
+Input: If food is being digested then it is in the body
+Candidates: under foot, in the ear, in the leg, above the knees
+Answer: above the knees
+Explanation: 
+
+Input: The stars at night, though bright and glowing merrily, are
+Candidates: distant, close, touchable, near
+Answer: distant
+Explanation: 
+
+Input: A telescope uses what to redirect light
+Candidates: money, shiny glass, lasers, people
+Answer: shiny glass
+Explanation: 
+
+Input: Poison causes harm to what things?
+Candidates: vibrant, mineral, dead, decaying
+Answer: vibrant
+Explanation: 
+
+Input: one inherited characteristic of fur is it's
+Candidates: value, hue, weight, length
+Answer: hue
+Explanation: 
+
+Input: {question}
+Candidates: {cands}
+Answer: {answer}
+Explanation: 

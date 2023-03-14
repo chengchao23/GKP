@@ -1,0 +1,40 @@
+Generate explanations for the answer to questions. Examples:
+
+Input: sunlight is a heat source emitted from
+Candidates: a white dwarf star, our only yellow star, a nearby quasar star, a red giant star
+Explanation: The sun can emit sunlight, and the sun is the only yellow star in our solar system.
+Answer: our only yellow star
+
+Input: Naomi looks around outside on a prairie and it is cloudless but the sun is nowhere to be seen. It is
+Candidates: night, noon, morning, afternoon
+Explanation: The sun rises from the morning until it sets in the night, it can be seen during the day when there is cloudless and no obstruction, but the sun cannot be seen at night.
+Answer: night
+
+Input: If food is being digested then it is in the body
+Candidates: under foot, in the ear, in the leg, above the knees
+Explanation: People digest food through the stomach, which is above the knees but not on the legs and ears, and the foot are below the knees.
+Answer: above the knees
+
+Input: The stars at night, though bright and glowing merrily, are
+Candidates: distant, close, touchable, near
+Explanation: The stars are far away from the earth and they shine at night.
+Answer: distant
+
+Input: A telescope uses what to redirect light
+Candidates: money, shiny glass, lasers, people
+Explanation: The telescope uses the refraction principle of light through shiny glass, people can use the telescope.
+Answer: shiny glass
+
+Input: Poison causes harm to what things?
+Candidates: vibrant, mineral, dead, decaying
+Explanation: Poison is harmful, and it is used to kill a living thing full of vitality, and a decaying and dead thing does not belong to the living.
+Answer: vibrant
+
+Input: one inherited characteristic of fur is it's
+Candidates: value, hue, weight, length
+Explanation: Weight and length are attributes of the fur, and the hue of the fur is a heritable trait for animals, and the fur has value only when it is sold.
+Answer: hue
+
+Input: {question}
+Candidates: {cands}
+Explanation:

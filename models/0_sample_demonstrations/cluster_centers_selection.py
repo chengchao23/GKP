@@ -26,8 +26,8 @@ def get_batch_question(args, data, shffule=False):
 
 def get_batch_question_features(args, batch_data):
     global questions_features
-    tokenizer = AutoTokenizer.from_pretrained(args.encoder_model)
-    encoder = AutoModel.from_pretrained(args.encoder_model).to(args.device)
+    tokenizer = AutoTokenizer.from_pretrained(args.encoder_model, cache_dir="pretrained_models/")
+    encoder = AutoModel.from_pretrained(args.encoder_model, cache_dir="pretrained_models/").to(args.device)
     for index, data in enumerate(batch_data):
         max_input_len = 0
         input_ids = []
@@ -92,7 +92,7 @@ def parse_arguments(parser):
 def main():
     parser = argparse.ArgumentParser()
     args = parse_arguments(parser)
-    jsdata, questions_features = get_questions_features(args, "data/csqa/train.csqa.json")
+    jsdata, questions_features = get_questions_features(args, args.input_file)
     questions_features = features_normalization(args, questions_features)
     pca = PCA(n_components=args.n_components)
     pca.fit(questions_features)

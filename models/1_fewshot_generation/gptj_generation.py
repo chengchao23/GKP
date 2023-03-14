@@ -33,7 +33,7 @@ def parse_arguments(parser):
     parser.add_argument('--top_p', default=0.5, type=float)
     parser.add_argument('--top_k', default=50, type=int)
     parser.add_argument('--temperature', default=0.9, type=float)
-    parser.add_argument('--max_new_tokens', default=50, type=int)
+    parser.add_argument('--max_new_tokens', default=80, type=int)
     parser.add_argument('--num_return_sequences', default=10, type=int)
     parser.add_argument('--n', default=None, type=int)
     args = parser.parse_args()

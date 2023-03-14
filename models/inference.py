@@ -27,6 +27,8 @@ def score_for_input(args, tokenizer, model, query, cands, knowledge=None):
     input_ids = tokenizer(source, return_tensors='pt').input_ids.to(args.device)
     for i, cand in enumerate(cands):
         labels = tokenizer(targets[i], return_tensors='pt').input_ids.to(args.device)
+        # print(input_ids)
+        # print(labels)
         with torch.no_grad():
             loss = model(input_ids=input_ids, labels=labels).loss.item()
         if not args.average_loss:
@@ -64,7 +66,7 @@ def process_item(args, tokenizer, model, item):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', type=str, default='cpu', choices=['cpu', 'cuda:0', 'cuda:1'])
-    parser.add_argument('--task', type=str, default='csqa', choices=['csqa', 'csqa2', 'numersense', 'qasc'])
+    parser.add_argument('--task', type=str, default='csqa', choices=['csqa', 'csqa2', 'obqa', 'qasc'])
     parser.add_argument('--model_name', type=str, default='pretrained_models/t5-3b')
     parser.add_argument('--input_path', type=str)
     parser.add_argument('--average-loss', action='store_true')

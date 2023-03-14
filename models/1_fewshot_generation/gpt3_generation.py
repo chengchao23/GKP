@@ -59,12 +59,12 @@ def parse_arguments(parser):
     # 在参数构造器中添加两个命令行参数
     parser.add_argument('--input_path', type=str, default="data/csqa/train.csqa.json")
     parser.add_argument('--prompt_path', type=str, default="knowledge/prompts/csqa_prompt.txt")
-    parser.add_argument('--engine', type=str, default="text-davinci-003")
+    parser.add_argument('--engine', type=str, default="gpt-3.5-turbo-0301")
     parser.add_argument('--top_p', default=0.5, type=float)
     parser.add_argument('--temperature', default=0.9, type=float)
     parser.add_argument('--max_tokens', default=50, type=int)
     parser.add_argument('--num_return_sequences', default=10, type=int)
-    parser.add_argument('--n', default=None, type=int)
+    parser.add_argument('--n', default=1, type=int)
     args = parser.parse_args()
     args.output_path = f"data/csqa/knowledge/knowledge_gpt3_{args.prompt_path.split('/')[-1].split('.')[0]}.{args.input_path.split('/')[-1]}"
     for k in args.__dict__:
